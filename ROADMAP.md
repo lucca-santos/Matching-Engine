@@ -49,16 +49,16 @@ Trade, price: <price>, qty: <qty>
 
 ## 4. Matching de Limit Orders e testes da engine
 
-- [ ] Inserir Limit Orders que não cruzam o livro.
-- [ ] Implementar Limit Buy agressiva.
-- [ ] Implementar Limit Sell agressiva.
-- [ ] Respeitar o preço limite da ordem.
-- [ ] Manter no livro a quantidade restante após execução parcial.
-- [ ] Modificar `test_engine.py`.
-- [ ] Testar Market Buy e Market Sell.
-- [ ] Testar execuções totais e parciais.
-- [ ] Testar múltiplas ordens e múltiplos preços.
-- [ ] Reproduzir o exemplo original do problema.
+- [x] Inserir Limit Orders que não cruzam o livro.
+- [x] Implementar Limit Buy agressiva.
+- [x] Implementar Limit Sell agressiva.
+- [x] Respeitar o preço limite da ordem.
+- [x] Manter no livro a quantidade restante após execução parcial.
+- [x] Modificar `test_engine.py`.
+- [x] Testar Market Buy e Market Sell.
+- [x] Testar execuções totais e parciais.
+- [x] Testar múltiplas ordens e múltiplos preços.
+- [x] Reproduzir o exemplo original do problema.
 
 Decisão técnica:
 

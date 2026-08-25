@@ -403,5 +403,70 @@ class TestMatchingEngine(unittest.TestCase):
             engine.book.best_order(Side.SELL)
         )
 
+
+    def test_original_problem_example(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        engine.submit_limit(
+            side=Side.SELL,
+            price=Decimal("20"),
+            qty=100,
+        )
+
+        engine.submit_limit(
+            side=Side.SELL,
+            price=Decimal("20"),
+            qty=200,
+        )
+
+        trades = engine.submit_market(
+            side=Side.BUY,
+            qty=150,
+        )   
+
+        self.assertEqual(
+            sum(trade.qty for trade in trades),
+            150,
+        )
+
+        self.assertTrue(
+            all(trade.price == Decimal("20") for trade in trades)
+        )
+
+        trades = engine.submit_market(
+            side=Side.BUY,
+            qty=200,
+        )
+
+        self.assertEqual(
+            sum(trade.qty for trade in trades),
+            150,
+        )
+
+        self.assertTrue(
+            all(trade.price == Decimal("20") for trade in trades)
+        )   
+
+        trades = engine.submit_market(
+            side=Side.SELL,
+            qty=200,
+        )
+
+        self.assertEqual(
+            sum(trade.qty for trade in trades),
+            100,
+        )
+
+        self.assertTrue(
+            all(trade.price == Decimal("10") for trade in trades)
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
