@@ -10,14 +10,14 @@ class TestOrderBook(unittest.TestCase):
     def test_add_buy_limit_order(self):
         book = OrderBook()
 
-        order = Order(
-            side=Side.BUY,
+        order = Order(                                        # Criando objeto da classe Order com os parametros passados.   
+            side=Side.BUY,                                    # Atributo side do objeto order recebe o valor Side.BUY (enumeração).
             type=OrderType.LIMIT,
             qty=100,
             price=Decimal("10"),
         )
 
-        book.add(order)
+        book.add(order)                                       # Método do objeto book. Adiciona a ordem ao livro de ordens.
 
         self.assertIn(Decimal("10"), book.buy_orders)
         self.assertIs(
