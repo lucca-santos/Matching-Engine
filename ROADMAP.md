@@ -31,15 +31,15 @@ Este roadmap organiza o desenvolvimento da Matching Engine em 10 etapas, começa
 
 ## 3. Matching Engine básica
 
-- [ ] Criar `engine.py`.
-- [ ] Criar classe `MatchingEngine`.
-- [ ] Integrar a engine ao `OrderBook`.
-- [ ] Implementar Market Buy.
-- [ ] Implementar Market Sell.
-- [ ] Implementar execução total e parcial.
-- [ ] Permitir execução contra várias ordens e vários níveis de preço.
-- [ ] Garantir que Market Orders não permaneçam no livro.
-- [ ] Gerar trades no formato:
+- [x] Criar `engine.py`.
+- [x] Criar classe `MatchingEngine`.
+- [x] Integrar a engine ao `OrderBook`.
+- [x] Implementar Market Buy.
+- [x] Implementar Market Sell.
+- [x] Implementar execução total e parcial.
+- [x] Permitir execução contra várias ordens e vários níveis de preço.
+- [x] Garantir que Market Orders não permaneçam no livro.
+- [x] Gerar trades no formato:
 
 ```text
 Trade, price: <price>, qty: <qty>
@@ -54,11 +54,11 @@ Trade, price: <price>, qty: <qty>
 - [ ] Implementar Limit Sell agressiva.
 - [ ] Respeitar o preço limite da ordem.
 - [ ] Manter no livro a quantidade restante após execução parcial.
-- [ ] Criar `test_engine.py`.
+- [ ] Modificar `test_engine.py`.
 - [ ] Testar Market Buy e Market Sell.
 - [ ] Testar execuções totais e parciais.
 - [ ] Testar múltiplas ordens e múltiplos preços.
-- [ ] Reproduzir o exemplo original do desafio.
+- [ ] Reproduzir o exemplo original do problema.
 
 Decisão técnica:
 
