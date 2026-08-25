@@ -68,3 +68,44 @@ class OrderBook:
             del side_book[price]
 
         return order                                                             # Devolve a ordem que saiu.
+
+    def format_book(self) -> list[str]:
+        buy_rows = []
+        sell_rows = []
+
+        for price in sorted(self.buy_orders, reverse=True):
+            for order in self.buy_orders[price]:
+                buy_rows.append(
+                    f"{order.qty} @ {order.price}"
+                )
+
+        for price in sorted(self.sell_orders):
+            for order in self.sell_orders[price]:
+                sell_rows.append(
+                    f"{order.qty} @ {order.price}"
+                )
+
+        lines = [
+            "Ordens de Compra    | Ordens de Venda",
+            "--------------------|--------------------",
+        ]
+
+        total_rows = max(
+            len(buy_rows),
+            len(sell_rows),
+        )
+
+        for index in range(total_rows):
+            buy = buy_rows[index] if index < len(buy_rows) else ""
+            sell = sell_rows[index] if index < len(sell_rows) else ""
+
+            if sell:
+                lines.append(
+                    f"{buy:<20}| {sell}"
+                )
+            else:
+                lines.append(
+                    f"{buy:<20}|"
+                )
+
+        return lines

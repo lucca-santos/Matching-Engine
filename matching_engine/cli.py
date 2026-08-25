@@ -50,6 +50,9 @@ def execute_command(
 
         return [str(trade) for trade in trades]
 
+    if parts[0] == "print" and len(parts) == 2 and parts[1] == "book":
+        return engine.book.format_book()
+
     raise ValueError("comando invalido")
 
 

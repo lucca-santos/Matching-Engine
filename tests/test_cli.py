@@ -23,6 +23,7 @@ class TestCLI(unittest.TestCase):
         self.assertEqual(order.price, Decimal("10"))
         self.assertEqual(order.qty, 100)
 
+
     def test_limit_sell_command_adds_order_to_book(self):
         engine = MatchingEngine()
 
@@ -37,6 +38,7 @@ class TestCLI(unittest.TestCase):
         self.assertIsNotNone(order)
         self.assertEqual(order.price, Decimal("20"))
         self.assertEqual(order.qty, 100)
+
 
     def test_market_buy_command_executes_trade(self):
         engine = MatchingEngine()
@@ -57,6 +59,7 @@ class TestCLI(unittest.TestCase):
             ["Trade, price: 20, qty: 50"],
         )
 
+
     def test_market_sell_command_executes_trade(self):
         engine = MatchingEngine()
 
@@ -75,6 +78,7 @@ class TestCLI(unittest.TestCase):
             output,
             ["Trade, price: 10, qty: 50"],
         )
+
 
     def test_aggressive_limit_command_returns_trade(self):
         engine = MatchingEngine()
@@ -95,6 +99,7 @@ class TestCLI(unittest.TestCase):
             ["Trade, price: 20, qty: 50"],
         )
 
+
     def test_invalid_command_raises_error(self):
         engine = MatchingEngine()
 
@@ -103,6 +108,7 @@ class TestCLI(unittest.TestCase):
                 engine,
                 "invalid command",
             )
+
 
     def test_limit_command_with_missing_arguments_raises_error(self):
         engine = MatchingEngine()
@@ -113,6 +119,7 @@ class TestCLI(unittest.TestCase):
                 "limit buy 10",
             )
 
+
     def test_market_command_with_missing_arguments_raises_error(self):
         engine = MatchingEngine()
 
@@ -121,6 +128,7 @@ class TestCLI(unittest.TestCase):
                 engine,
                 "market buy",
             )
+
 
     def test_invalid_side_raises_error(self):
         engine = MatchingEngine()
@@ -131,6 +139,7 @@ class TestCLI(unittest.TestCase):
                 "limit invalid 10 100",
             )
 
+
     def test_invalid_price_raises_error(self):
         engine = MatchingEngine()
 
@@ -139,6 +148,7 @@ class TestCLI(unittest.TestCase):
                 engine,
                 "limit buy invalid 100",
             )
+
 
     def test_invalid_quantity_raises_error(self):
         engine = MatchingEngine()
@@ -149,6 +159,41 @@ class TestCLI(unittest.TestCase):
                 "limit buy 10 invalid",
             )
 
+    def test_print_book_command(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=200,
+        )
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("9.99"),
+            qty=100,
+        )
+
+        engine.submit_limit(
+            side=Side.SELL,
+            price=Decimal("10.5"),
+            qty=100,
+        )
+
+        output = execute_command(
+            engine,
+            "print book",
+        )
+
+        self.assertEqual(
+            output,
+            [
+                "Ordens de Compra    | Ordens de Venda",
+                "--------------------|--------------------",
+                "200 @ 10            | 100 @ 10.5",
+                "100 @ 9.99          |",
+            ],
+        )
 
 if __name__ == "__main__":
     unittest.main()

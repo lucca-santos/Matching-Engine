@@ -89,13 +89,13 @@ python -m matching_engine
 
 ## 6. Visualização do livro e prioridade
 
-- [ ] Implementar `print book`.
-- [ ] Mostrar BUY do maior para o menor preço.
-- [ ] Mostrar SELL do menor para o maior preço.
-- [ ] Mostrar preço e quantidade.
-- [ ] Garantir prioridade por preço.
-- [ ] Garantir FIFO dentro do mesmo preço.
-- [ ] Criar testes específicos de visualização e prioridade.
+- [x] Implementar `print book`.
+- [x] Mostrar BUY do maior para o menor preço.
+- [x] Mostrar SELL do menor para o maior preço.
+- [x] Mostrar preço e quantidade.
+- [x] Garantir prioridade por preço.
+- [x] Garantir FIFO dentro do mesmo preço.
+- [x] Criar testes específicos de visualização e prioridade.
 
 Regra:
 

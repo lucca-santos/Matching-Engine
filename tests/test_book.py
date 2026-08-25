@@ -1,6 +1,7 @@
 import unittest
 from decimal import Decimal
 
+from matching_engine import book
 from matching_engine.book import OrderBook
 from matching_engine.orders import Order, OrderType, Side
 
@@ -25,6 +26,7 @@ class TestOrderBook(unittest.TestCase):
             order,
         )
 
+
     def test_add_sell_limit_order(self):
         book = OrderBook()
 
@@ -42,6 +44,7 @@ class TestOrderBook(unittest.TestCase):
             book.sell_orders[Decimal("20")][0],
             order,
         )
+
 
     def test_best_buy_price_is_highest(self):
         book = OrderBook()
@@ -78,6 +81,7 @@ class TestOrderBook(unittest.TestCase):
             Decimal("11"),
         )
 
+
     def test_best_sell_price_is_lowest(self):
         book = OrderBook()
 
@@ -113,6 +117,7 @@ class TestOrderBook(unittest.TestCase):
             Decimal("19"),
         )
 
+
     def test_orders_at_same_price_keep_arrival_order(self):
         book = OrderBook()
 
@@ -137,6 +142,7 @@ class TestOrderBook(unittest.TestCase):
             book.best_order(Side.SELL),
             first_order,
         )
+
 
     def test_remove_best_order(self):
         book = OrderBook()
@@ -166,6 +172,121 @@ class TestOrderBook(unittest.TestCase):
             second_order,
         )
 
+
+    def test_format_book_shows_orders_in_price_priority(self):
+        book = OrderBook()
+
+        book.add(
+            Order(
+                side=Side.BUY,
+                type=OrderType.LIMIT,
+                price=Decimal("9.99"),
+                qty=100,
+            )
+        )
+
+        book.add(
+            Order(
+                side=Side.BUY,
+                type=OrderType.LIMIT,
+                price=Decimal("10"),
+                qty=200,
+            )
+        )
+
+        book.add(
+         Order(
+            side=Side.SELL,
+            type=OrderType.LIMIT,
+            price=Decimal("10.5"),
+            qty=100,
+            )
+        )
+
+        output = book.format_book()
+
+        self.assertEqual(
+            output,
+            [
+                "Ordens de Compra    | Ordens de Venda",
+                "--------------------|--------------------",
+                "200 @ 10            | 100 @ 10.5",
+                "100 @ 9.99          |",
+            ],
+        )
+
+
+    def test_format_book_shows_sell_orders_from_lowest_to_highest_price(self):
+        book = OrderBook()
+
+        book.add(
+            Order(
+                side=Side.SELL,
+                type=OrderType.LIMIT,
+                price=Decimal("22"),
+                qty=100,
+            )
+        )
+
+        book.add(
+            Order(
+                side=Side.SELL,
+                type=OrderType.LIMIT,
+                price=Decimal("20"),
+                qty=200,
+            )
+        )
+
+        book.add(
+            Order(
+                side=Side.SELL,
+                type=OrderType.LIMIT,
+                price=Decimal("21"),
+                qty=300,
+            )
+        )
+
+        output = book.format_book()
+
+        self.assertEqual(
+            output[2:],
+            [
+                "                    | 200 @ 20",
+                "                    | 300 @ 21",
+                "                    | 100 @ 22",
+            ],
+        )
+
+
+    def test_format_book_keeps_fifo_at_same_price(self):
+        book = OrderBook()
+
+        first_order = Order(
+            side=Side.BUY,
+            type=OrderType.LIMIT,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        second_order = Order(
+            side=Side.BUY,
+            type=OrderType.LIMIT,
+            price=Decimal("10"),
+            qty=200,
+        )
+
+        book.add(first_order)
+        book.add(second_order)
+
+        output = book.format_book()
+
+        self.assertEqual(
+            output[2:],
+            [
+                "100 @ 10            |",
+                "200 @ 10            |",
+            ],
+        )
 
 if __name__ == "__main__":
     unittest.main()
