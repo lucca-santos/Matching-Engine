@@ -71,15 +71,15 @@ Caso reste quantidade, a sobra permanecerá no livro no preço limite.
 
 ## 5. Interface de linha de comando
 
-- [ ] Criar `cli.py`.
-- [ ] Interpretar comandos `limit` e `market`.
-- [ ] Interpretar BUY e SELL.
-- [ ] Converter preço para `Decimal`.
-- [ ] Converter quantidade para `int`.
-- [ ] Exibir trades.
-- [ ] Tratar comandos inválidos.
-- [ ] Criar `__main__.py`.
-- [ ] Permitir execução com:
+- [x] Criar `cli.py`.
+- [x] Interpretar comandos `limit` e `market`.
+- [x] Interpretar BUY e SELL.
+- [x] Converter preço para `Decimal`.
+- [x] Converter quantidade para `int`.
+- [x] Exibir trades.
+- [x] Tratar comandos inválidos.
+- [x] Criar `__main__.py`.
+- [x] Permitir execução com:
 
 ```bash
 python -m matching_engine
