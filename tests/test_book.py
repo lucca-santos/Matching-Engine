@@ -287,6 +287,53 @@ class TestOrderBook(unittest.TestCase):
                 "200 @ 10            |",
             ],
         )
+        
+    
+    def test_find_unknown_order_returns_none(self):
+        book = OrderBook()
+
+        self.assertIsNone(
+            book.find_order("ord-999")
+        )
+
+
+    def test_remove_order_removes_empty_price_level(self):
+        book = OrderBook()
+
+        order = Order(
+            side=Side.BUY,
+            type=OrderType.LIMIT,
+            qty=100,
+            price=Decimal("10"),
+            order_id="ord-1",
+        )
+
+        book.add(order)
+
+        removed = book.remove_order(order)
+
+        self.assertTrue(removed)
+
+        self.assertNotIn(
+            Decimal("10"),
+            book.buy_orders,
+        )
+
+
+    def test_remove_order_returns_false_when_order_not_in_book(self):
+        book = OrderBook()
+
+        order = Order(
+            side=Side.BUY,
+            type=OrderType.LIMIT,
+            qty=100,
+            price=Decimal("10"),
+            order_id="ord-1",
+        )
+
+        self.assertFalse(
+            book.remove_order(order)
+        )
 
 if __name__ == "__main__":
     unittest.main()

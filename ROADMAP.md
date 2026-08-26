@@ -146,16 +146,16 @@ Aumento de quantidade = perde prioridade.
 
 ## 9. Validações, casos de borda e revisão técnica
 
-- [ ] Validar preço e quantidade.
-- [ ] Tratar livro vazio.
-- [ ] Tratar falta de liquidez.
-- [ ] Tratar IDs inexistentes.
-- [ ] Tratar cancelamentos e alterações inválidas.
-- [ ] Garantir consistência das quantidades após trades.
-- [ ] Revisar estruturas de dados utilizadas.
-- [ ] Documentar complexidades.
-- [ ] Avaliar otimizações somente se necessárias.
-- [ ] Garantir que todas as decisões técnicas possam ser explicadas.
+- [x] Validar preço e quantidade.
+- [x] Tratar livro vazio.
+- [x] Tratar falta de liquidez.
+- [x] Tratar IDs inexistentes.
+- [x] Tratar cancelamentos e alterações inválidas.
+- [x] Garantir consistência das quantidades após trades.
+- [x] Revisar estruturas de dados utilizadas.
+- [x] Documentar complexidades.
+- [x] Avaliar otimizações somente se necessárias.
+- [x] Garantir que todas as decisões técnicas possam ser explicadas.
 
 ---
 
@@ -167,7 +167,7 @@ Aumento de quantidade = perde prioridade.
 python -m unittest discover -s tests -v
 ```
 
-- [ ] Testar manualmente todos os exemplos do enunciado.
+- [x] Testar manualmente todos os exemplos do enunciado.
 - [ ] Atualizar README.
 - [ ] Documentar arquitetura, decisões técnicas, complexidades e limitações.
 - [ ] Revisar histórico Git e mensagens dos commits.

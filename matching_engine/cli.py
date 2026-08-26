@@ -1,8 +1,24 @@
 from decimal import Decimal, InvalidOperation
 
-from .engine import MatchingEngine
+from .engine import MatchingEngine, Trade
 from .orders import Side, PegReference
 
+
+def aggregate_trades(trades: list[Trade]) -> list[Trade]:
+    aggregated = []
+
+    for trade in trades:
+        if aggregated and aggregated[-1].price == trade.price:
+            aggregated[-1].qty += trade.qty
+        else:
+            aggregated.append(
+                Trade(
+                    price=trade.price,
+                    qty=trade.qty,
+                )
+            )
+
+    return aggregated
 
 def execute_command(
     engine: MatchingEngine,
@@ -32,7 +48,10 @@ def execute_command(
             qty=qty,
         )
 
-        output = [str(trade) for trade in trades]
+        output = [
+            str(trade)
+            for trade in aggregate_trades(trades)
+        ]
 
         created_order = engine.last_created_order
 
@@ -64,7 +83,10 @@ def execute_command(
             qty=qty,
         )
 
-        return [str(trade) for trade in trades]
+        return [
+            str(trade)
+            for trade in aggregate_trades(trades)
+        ]
 
     # Print book
     if parts[0] == "print" and len(parts) == 2 and parts[1] == "book":
@@ -75,13 +97,9 @@ def execute_command(
         if len(parts) != 3 or parts[1] != "order":
             raise ValueError("comando cancel invalido")
 
-        trades = engine.cancel_order(parts[2])
-
-        output = [str(trade) for trade in trades]
-
-        output.append("Order cancelled")
-
-        return output
+        engine.cancel_order(parts[2])
+        
+        return ["Order cancelled"]
     
     # Modifica ordem
     if parts[0] == "modify":
@@ -118,7 +136,10 @@ def execute_command(
             qty=qty,
         )
 
-        output = [str(trade) for trade in trades]
+        output = [
+            str(trade)
+            for trade in aggregate_trades(trades)
+        ]
 
         output.append("Order modified")
 
@@ -143,7 +164,10 @@ def execute_command(
             qty=qty,
         )
 
-        output = [str(trade) for trade in trades]
+        output = [
+            str(trade)
+            for trade in aggregate_trades(trades)
+        ]
 
         created_order = engine.last_created_order
 

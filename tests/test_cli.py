@@ -415,5 +415,64 @@ class TestCLI(unittest.TestCase):
             ],
         )
     
+    
+    def test_cli_create_peg_offer_sell(self):
+        engine = MatchingEngine()
+
+        execute_command(
+            engine,
+            "limit sell 10 100",
+        )
+
+        output = execute_command(
+            engine,
+            "peg offer sell 50",
+        )
+
+        self.assertEqual(
+            output,
+            [
+                "Order created: sell 50 @ 10 ord-2"
+            ],
+        )
+
+
+    def test_cli_peg_offer_sell_updates_book(self):
+        engine = MatchingEngine()
+
+        execute_command(
+            engine,
+            "limit sell 10 100",
+        )
+
+        execute_command(
+            engine,
+            "peg offer sell 50",
+        )
+
+        execute_command(
+            engine,
+            "limit sell 9 100",
+        )
+
+        book = execute_command(
+            engine,
+            "print book",
+        )
+
+        self.assertTrue(
+            any("50 @ 9" in line for line in book)
+        )
+
+
+    def test_cli_peg_offer_sell_without_reference(self):
+        engine = MatchingEngine()
+
+        with self.assertRaises(ValueError):
+            execute_command(
+                engine,
+                "peg offer sell 50",
+            )
+    
 if __name__ == "__main__":
     unittest.main()

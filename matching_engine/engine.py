@@ -109,7 +109,7 @@ class MatchingEngine:                                               # Recebe as 
         while changed:
             changed = False
 
-            for order in list(self.pegged_orders.values()):                       # Crio uma cópia das Pegged Orders antes de iterar porque algumas delas podem ser removidas (pop) do dicionário durante a atualização.
+            for order in list(self.pegged_orders.values()):     # noqa: S7504     # Crio uma cópia das Pegged Orders antes de iterar porque algumas delas podem ser removidas (pop) do dicionário durante a atualização.
                 if order.qty <= 0:
                     self._remove_pegged_order(order)
                     changed = True
