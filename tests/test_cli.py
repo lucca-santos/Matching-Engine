@@ -18,7 +18,10 @@ class TestCLI(unittest.TestCase):
 
         order = engine.book.best_order(Side.BUY)
 
-        self.assertEqual(output, [])
+        self.assertEqual(
+            output,
+            ["Order created: buy 100 @ 10 ord-1"],
+        )
         self.assertIsNotNone(order)
         self.assertEqual(order.price, Decimal("10"))
         self.assertEqual(order.qty, 100)
@@ -34,7 +37,10 @@ class TestCLI(unittest.TestCase):
 
         order = engine.book.best_order(Side.SELL)
 
-        self.assertEqual(output, [])
+        self.assertEqual(
+            output,
+            ["Order created: sell 100 @ 20 ord-1"],
+        )
         self.assertIsNotNone(order)
         self.assertEqual(order.price, Decimal("20"))
         self.assertEqual(order.qty, 100)
@@ -88,7 +94,7 @@ class TestCLI(unittest.TestCase):
             price=Decimal("20"),
             qty=100,
         )
-
+        
         output = execute_command(
             engine,
             "limit buy 25 50",
@@ -159,6 +165,7 @@ class TestCLI(unittest.TestCase):
                 "limit buy 10 invalid",
             )
 
+
     def test_print_book_command(self):
         engine = MatchingEngine()
 
@@ -194,6 +201,96 @@ class TestCLI(unittest.TestCase):
                 "100 @ 9.99          |",
             ],
         )
+        
+    
+    def test_cancel_order_command(self):
+        engine = MatchingEngine()
 
+        execute_command(
+            engine,
+            "limit buy 10 100",
+        )
+
+        order = engine.book.best_order(Side.BUY)
+
+        output = execute_command(
+            engine,
+            f"cancel order {order.order_id}",
+        )
+
+        self.assertEqual(
+            output,
+            ["Order cancelled"],
+        )
+
+        self.assertIsNone(
+            engine.book.find_order(order.order_id)
+        )
+
+
+    def test_modify_order_price_command(self):
+        engine = MatchingEngine()
+
+        execute_command(
+            engine,
+            "limit buy 10 100",
+        )
+
+        order = engine.book.best_order(Side.BUY)
+
+        output = execute_command(
+            engine,
+            f"modify order {order.order_id} price 9.98",
+        )
+
+        self.assertEqual(
+            output,
+            ["Order modified"],
+        )
+
+        modified_order = engine.book.find_order(
+            order.order_id
+        )
+
+        self.assertEqual(
+            modified_order.price,
+            Decimal("9.98"),
+        )
+
+
+    def test_modify_order_price_and_quantity_command(self):
+        engine = MatchingEngine()
+
+        execute_command(
+            engine,
+            "limit buy 10 100",
+        )
+
+        order = engine.book.best_order(Side.BUY)
+
+        output = execute_command(
+            engine,
+            f"modify order {order.order_id} price 9.98 qty 50",
+        )
+
+        self.assertEqual(
+            output,
+            ["Order modified"],
+        )
+
+        modified_order = engine.book.find_order(
+            order.order_id
+        )
+
+        self.assertEqual(
+            modified_order.price,
+            Decimal("9.98"),
+        )
+
+        self.assertEqual(
+            modified_order.qty,
+            50,
+        )
+    
 if __name__ == "__main__":
     unittest.main()

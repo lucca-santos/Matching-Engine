@@ -108,16 +108,16 @@ Regra:
 
 ## 7. IDs, cancelamento e alteração de ordens
 
-- [ ] Adicionar ID único às ordens.
-- [ ] Permitir localizar ordens por ID.
-- [ ] Implementar `cancel order <id>`.
-- [ ] Remover ordens canceladas do livro.
-- [ ] Permitir alteração de preço.
-- [ ] Permitir alteração de quantidade.
-- [ ] Reposicionar ordem após mudança de preço.
-- [ ] Fazer a ordem perder prioridade quando necessário.
-- [ ] Executar matching caso a alteração gere cruzamento.
-- [ ] Criar testes de cancelamento e alteração.
+- [x] Adicionar ID único às ordens.
+- [x] Permitir localizar ordens por ID.
+- [x] Implementar `cancel order <id>`.
+- [x] Remover ordens canceladas do livro.
+- [x] Permitir alteração de preço.
+- [x] Permitir alteração de quantidade.
+- [x] Reposicionar ordem após mudança de preço.
+- [x] Fazer a ordem perder prioridade quando necessário.
+- [x] Executar matching caso a alteração gere cruzamento.
+- [x] Criar testes de cancelamento e alteração.
 
 Decisão prevista:
 

@@ -23,3 +23,4 @@ class Order:
     type: OrderType
     qty: int
     price: Optional[Decimal] = None                              # Pode ser decimal ou não existir.
+    order_id: Optional[str] = None

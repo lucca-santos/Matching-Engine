@@ -11,6 +11,8 @@ class OrderBook:
     def __init__(self) -> None:                                                   # Inicializa o livro de ordens com dicionários para ordens de compra e venda, onde as chaves são preços (Decimal) e os valores são filas (deque) de ordens (Order).
         self.buy_orders: Dict[Decimal, Deque[Order]] = {}      
         self.sell_orders: Dict[Decimal, Deque[Order]] = {}
+        
+        self.orders_by_id: Dict[str, Order] = {}
 
     def _get_side_book(self, side: Side) -> Dict[Decimal, Deque[Order]]:          # O self representa a instância/objeto da classe, e é usado para acessar variáveis que pertencem à classe.
         if side is Side.BUY:
@@ -31,6 +33,9 @@ class OrderBook:
             side_book[order.price] = deque()
 
         side_book[order.price].append(order)
+        
+        if order.order_id is not None:
+            self.orders_by_id[order.order_id] = order
 
     def best_price(self, side: Side) -> Optional[Decimal]:                         # Diz o melhor preço para o lado da ordem.
         side_book = self._get_side_book(side)
@@ -63,6 +68,9 @@ class OrderBook:
         orders_at_price = side_book[price]                                       # Pega a fila de ordens para o melhor preço do lado X.
 
         order = orders_at_price.popleft()                                        # Remove o primeiro elemento da fila de ordens para o melhor preço do lado X.
+        
+        if order.order_id is not None:                                           # Se uma ordem foi totalmente executada, ela também precisa sair do dicionário de ordens por ID, para que não seja possível cancelar uma ordem que já foi executada.
+            self.orders_by_id.pop(order.order_id, None)
 
         if not orders_at_price:                                                  # Verifica se a fila de ordens para o melhor preço do lado X está vazia. Se estiver, remove a chave (preço) do dicionário side_book.
             del side_book[price]
@@ -109,3 +117,31 @@ class OrderBook:
                 )
 
         return lines
+    
+    def find_order(self, order_id: str) -> Optional[Order]:
+        return self.orders_by_id.get(order_id)
+
+
+    def remove_order(self, order: Order) -> bool:
+        if order.price is None:
+            return False
+
+        side_book = self._get_side_book(order.side)
+
+        if order.price not in side_book:
+            return False
+
+        orders_at_price = side_book[order.price]
+
+        try:
+            orders_at_price.remove(order)
+        except ValueError:
+            return False
+
+        if not orders_at_price:
+            del side_book[order.price]
+
+        if order.order_id is not None:
+            self.orders_by_id.pop(order.order_id, None)
+
+        return True

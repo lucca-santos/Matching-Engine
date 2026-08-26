@@ -468,5 +468,194 @@ class TestMatchingEngine(unittest.TestCase):
         )
 
 
+    def test_limit_orders_receive_unique_ids(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("9"),
+            qty=200,
+        )
+
+        first_order = engine.book.buy_orders[Decimal("10")][0]
+        second_order = engine.book.buy_orders[Decimal("9")][0]
+
+        self.assertEqual(first_order.order_id, "ord-1")
+        self.assertEqual(second_order.order_id, "ord-2")
+
+
+    def test_find_order_by_id(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        order = engine.book.best_order(Side.BUY)
+
+        found_order = engine.book.find_order(order.order_id)
+
+        self.assertIs(found_order, order)
+
+
+    def test_cancel_order_removes_order_from_book(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        order = engine.book.best_order(Side.BUY)
+
+        engine.cancel_order(order.order_id)
+
+        self.assertIsNone(
+            engine.book.find_order(order.order_id)
+        )
+
+
+    def test_modify_price_repositions_order(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=200,
+        )
+
+        first_order = engine.book.best_order(Side.BUY)
+        first_id = first_order.order_id
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("9.99"),
+            qty=100,
+        )
+
+        second_order = engine.book.buy_orders[Decimal("9.99")][0]
+        second_id = second_order.order_id
+
+        engine.modify_order(
+            first_id,
+            price=Decimal("9.98"),
+        )
+
+        self.assertEqual(
+            engine.book.best_order(Side.BUY).order_id,
+            second_id,
+        )
+
+        modified_order = engine.book.find_order(first_id)
+
+        self.assertEqual(
+            modified_order.price,
+            Decimal("9.98"),
+        )
+
+
+    def test_reduce_quantity_keeps_priority(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=200,
+        )
+
+        first_order = engine.book.buy_orders[Decimal("10")][0]
+        first_id = first_order.order_id
+
+        engine.modify_order(
+            first_id,
+            qty=50,
+        )
+
+        orders = engine.book.buy_orders[Decimal("10")]
+
+        self.assertEqual(orders[0].order_id, first_id)
+        self.assertEqual(orders[0].qty, 50)
+
+
+    def test_increase_quantity_loses_priority(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=200,
+        )
+
+        first_order = engine.book.buy_orders[Decimal("10")][0]
+        second_order = engine.book.buy_orders[Decimal("10")][1]
+
+        first_id = first_order.order_id
+        second_id = second_order.order_id
+
+        engine.modify_order(
+            first_id,
+            qty=150,
+        )
+
+        orders = engine.book.buy_orders[Decimal("10")]
+
+        self.assertEqual(orders[0].order_id, second_id)
+        self.assertEqual(orders[1].order_id, first_id)
+
+
+    def test_modify_price_can_generate_trade(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.SELL,
+            price=Decimal("10.5"),
+            qty=100,
+        )
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=200,
+        )
+
+        buy_order = engine.book.best_order(Side.BUY)
+        buy_id = buy_order.order_id
+
+        trades = engine.modify_order(
+            buy_id,
+            price=Decimal("11"),
+        )
+
+        self.assertEqual(len(trades), 1)
+        self.assertEqual(trades[0].price, Decimal("10.5"))
+        self.assertEqual(trades[0].qty, 100)
+
+        remaining_order = engine.book.find_order(buy_id)
+
+        self.assertIsNotNone(remaining_order)
+        self.assertEqual(remaining_order.price, Decimal("11"))
+        self.assertEqual(remaining_order.qty, 100)
+
 if __name__ == "__main__":
     unittest.main()
