@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from matching_engine import engine
 from matching_engine.engine import MatchingEngine
-from matching_engine.orders import Side
+from matching_engine.orders import OrderType, PegReference, Side
 
 
 class TestMatchingEngine(unittest.TestCase):
@@ -656,6 +656,497 @@ class TestMatchingEngine(unittest.TestCase):
         self.assertIsNotNone(remaining_order)
         self.assertEqual(remaining_order.price, Decimal("11"))
         self.assertEqual(remaining_order.qty, 100)
+        
+        
+    def test_peg_bid_uses_best_bid_price(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=200,
+        )
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("9.99"),
+            qty=100,
+        )
+
+        engine.submit_peg(
+            reference=PegReference.BID,
+            side=Side.BUY,
+            qty=150,
+        )
+
+        peg_order = engine.last_created_order
+
+        self.assertEqual(peg_order.type, OrderType.PEG)
+        self.assertEqual(
+            peg_order.peg_reference,
+            PegReference.BID,
+        )
+        self.assertEqual(
+            peg_order.price,
+            Decimal("10"),
+        )
+        self.assertEqual(peg_order.qty, 150)
+
+
+    def test_peg_offer_uses_best_offer_price(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.SELL,
+            price=Decimal("10.5"),
+            qty=100,
+        )
+
+        engine.submit_limit(
+            side=Side.SELL,
+            price=Decimal("11"),
+            qty=200,
+        )
+
+        engine.submit_peg(
+            reference=PegReference.OFFER,
+            side=Side.SELL,
+            qty=150,
+        )
+
+        peg_order = engine.last_created_order
+
+        self.assertEqual(peg_order.type, OrderType.PEG)
+        self.assertEqual(
+            peg_order.peg_reference,
+            PegReference.OFFER,
+        )
+        self.assertEqual(
+            peg_order.price,
+            Decimal("10.5"),
+        )
+        self.assertEqual(peg_order.qty, 150)
+
+
+    def test_peg_bid_reprices_and_keeps_priority(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=200,
+        )
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("9.99"),
+            qty=100,
+        )
+
+        engine.submit_peg(
+            reference=PegReference.BID,
+            side=Side.BUY,
+            qty=150,
+        )
+
+        peg_order = engine.last_created_order
+        peg_id = peg_order.order_id
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10.1"),
+            qty=300,
+        )
+
+        peg_order = engine.book.find_order(peg_id)
+
+        self.assertIsNotNone(peg_order)
+        self.assertEqual(
+            peg_order.price,
+            Decimal("10.1"),
+        )
+
+        orders = engine.book.buy_orders[
+            Decimal("10.1")
+        ]
+
+        self.assertEqual(
+            orders[0].order_id,
+            peg_id,
+        )
+
+        self.assertEqual(
+            orders[0].qty,
+            150,
+        )
+
+        self.assertEqual(
+            orders[1].qty,
+            300,
+        )
+
+
+    def test_peg_offer_reprices_when_best_offer_changes(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.SELL,
+            price=Decimal("10.5"),
+            qty=100,
+        )
+
+        engine.submit_peg(
+            reference=PegReference.OFFER,
+            side=Side.SELL,
+            qty=150,
+        )
+
+        peg_order = engine.last_created_order
+        peg_id = peg_order.order_id
+
+        engine.submit_limit(
+            side=Side.SELL,
+            price=Decimal("10.4"),
+            qty=200,
+        )
+
+        peg_order = engine.book.find_order(peg_id)
+
+        self.assertIsNotNone(peg_order)
+        self.assertEqual(
+            peg_order.price,
+            Decimal("10.4"),
+        )
+
+
+    def test_peg_without_reference_raises_error(self):
+        engine = MatchingEngine()
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "reference price unavailable",
+        ):
+            engine.submit_peg(
+                reference=PegReference.BID,
+                side=Side.BUY,
+                qty=100,
+            )
+
+
+    def test_pegged_order_is_not_used_as_reference(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        limit_order = engine.last_created_order
+
+        engine.submit_peg(
+            reference=PegReference.BID,
+            side=Side.BUY,
+            qty=150,
+        )
+
+        engine.cancel_order(
+            limit_order.order_id
+        )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "reference price unavailable",
+        ):
+            engine.submit_peg(
+                reference=PegReference.BID,
+                side=Side.BUY,
+                qty=200,
+            )
+
+
+    def test_peg_reprices_when_reference_is_cancelled(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        best_limit = engine.last_created_order
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("9"),
+            qty=200,
+        )
+
+        second_limit = engine.last_created_order
+
+        engine.submit_peg(
+            reference=PegReference.BID,
+            side=Side.BUY,
+            qty=150,
+        )
+
+        peg_order = engine.last_created_order
+        peg_id = peg_order.order_id
+
+        engine.cancel_order(
+            best_limit.order_id
+        )
+
+        peg_order = engine.book.find_order(
+            peg_id
+        )
+
+        self.assertIsNotNone(peg_order)
+
+        self.assertEqual(
+            peg_order.price,
+            Decimal("9"),
+        )
+
+        orders = engine.book.buy_orders[
+            Decimal("9")
+        ]
+
+        self.assertEqual(
+            orders[0].order_id,
+            second_limit.order_id,
+        )
+
+        self.assertEqual(
+            orders[1].order_id,
+            peg_id,
+        )
+
+
+    def test_peg_is_suspended_when_reference_disappears(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        limit_order = engine.last_created_order
+
+        engine.submit_peg(
+            reference=PegReference.BID,
+            side=Side.BUY,
+            qty=150,
+        )
+
+        peg_order = engine.last_created_order
+        peg_id = peg_order.order_id
+
+        engine.cancel_order(
+            limit_order.order_id
+        )
+
+        self.assertIsNone(
+            engine.book.find_order(peg_id)
+        )
+
+        self.assertIsNone(
+            engine.book.best_order(Side.BUY)
+        )
+
+
+    def test_suspended_peg_reactivates_when_reference_returns(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        limit_order = engine.last_created_order
+
+        engine.submit_peg(
+            reference=PegReference.BID,
+            side=Side.BUY,
+            qty=150,
+        )
+
+        peg_order = engine.last_created_order
+        peg_id = peg_order.order_id
+
+        engine.cancel_order(
+            limit_order.order_id
+        )
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("9"),
+            qty=200,
+        )
+
+        new_limit = engine.last_created_order
+
+        peg_order = engine.book.find_order(
+            peg_id
+        )
+
+        self.assertIsNotNone(peg_order)
+
+        self.assertEqual(
+            peg_order.price,
+            Decimal("9"),
+        )
+
+        orders = engine.book.buy_orders[
+            Decimal("9")
+        ]
+
+        self.assertEqual(
+            orders[0].order_id,
+            new_limit.order_id,
+        )
+
+        self.assertEqual(
+            orders[1].order_id,
+            peg_id,
+        )
+
+
+    def test_peg_is_suspended_during_matching_when_reference_is_consumed(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        engine.submit_peg(
+            reference=PegReference.BID,
+            side=Side.BUY,
+            qty=150,
+        )
+
+        peg_order = engine.last_created_order
+        peg_id = peg_order.order_id
+
+        trades = engine.submit_limit(
+            side=Side.SELL,
+            price=Decimal("10"),
+            qty=200,
+        )
+
+        self.assertEqual(
+            len(trades),
+            1,
+        )
+
+        self.assertEqual(
+            trades[0].price,
+            Decimal("10"),
+        )
+
+        self.assertEqual(
+            trades[0].qty,
+            100,
+        )
+
+        self.assertIsNone(
+            engine.book.find_order(peg_id)
+        )
+
+        remaining_sell = engine.book.best_order(
+            Side.SELL
+        )
+
+        self.assertIsNotNone(
+            remaining_sell
+        )
+
+        self.assertEqual(
+            remaining_sell.price,
+            Decimal("10"),
+        )
+
+        self.assertEqual(
+            remaining_sell.qty,
+            100,
+        )
+
+
+    def test_market_stops_after_peg_reference_disappears(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        engine.submit_peg(
+            reference=PegReference.BID,
+            side=Side.BUY,
+            qty=150,
+        )
+
+        peg_order = engine.last_created_order
+        peg_id = peg_order.order_id
+
+        trades = engine.submit_market(
+            side=Side.SELL,
+            qty=200,
+        )
+
+        self.assertEqual(
+            len(trades),
+            1,
+        )
+
+        self.assertEqual(
+            trades[0].qty,
+            100,
+        )
+
+        self.assertIsNone(
+            engine.book.find_order(peg_id)
+        )
+
+        self.assertIsNone(
+            engine.book.best_order(Side.SELL)
+        )
+
+
+    def test_peg_order_executes_when_reference_price_crosses(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        trades = engine.submit_peg(
+            reference=PegReference.BID,
+            side=Side.SELL,
+            qty=50,
+        )
+
+        self.assertEqual(
+            len(trades),
+            1,
+        )
+
+        self.assertEqual(
+            trades[0].price,
+            Decimal("10"),
+        )
+
+        self.assertEqual(
+            trades[0].qty,
+            50,
+        )
 
 if __name__ == "__main__":
     unittest.main()

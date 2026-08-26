@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Optional
 
 from .book import OrderBook
-from .orders import Order, OrderType, Side
+from .orders import Order, OrderType, PegReference, Side
 
 
 @dataclass
@@ -25,7 +25,12 @@ class MatchingEngine:                                               # Recebe as 
         self.book = OrderBook()
         
         self.next_order_id = 1
+        self.next_sequence = 1
+        
         self.last_created_order = None
+        
+        self.pegged_orders: dict[str, Order] = {}                   # Armazena todas as Pegged Orders existentes, inclusive as que estiverem suspensas.
+        self.suspended_peg_ids: set[str] = set()                    # Guarda os IDs das Pegged Orders que perderam temporariamente sua referência.
     
     def _generate_order_id(self) -> str:
         order_id = f"ord-{self.next_order_id}"
@@ -33,6 +38,122 @@ class MatchingEngine:                                               # Recebe as 
         self.next_order_id += 1
 
         return order_id
+
+    def _generate_sequence(self) -> int:
+        sequence = self.next_sequence
+        self.next_sequence += 1
+
+        return sequence
+
+    def _reference_price(self, reference: PegReference) -> Optional[Decimal]:     # Busca o preço que uma Pegged Order deve acompanhar.
+        if reference is PegReference.BID:
+            return self.book.best_limit_price(Side.BUY)                           # Ordens PEG nunca serão referência.
+
+        return self.book.best_limit_price(Side.SELL)
+
+    def _remove_pegged_order(self, order: Order) -> None:                         # Remove definitivamente uma Pegged Order do controle da engine.
+        if order.order_id is None:
+            return
+
+        self.pegged_orders.pop(order.order_id, None)
+        self.suspended_peg_ids.discard(order.order_id)
+
+    def _match_order(self, order: Order, refresh_pegs: bool = True) -> list[Trade]:
+        trades = []
+
+        opposite_side = order.side.opposite
+
+        while order.qty > 0:
+            best_order = self.book.best_order(opposite_side)
+
+            if best_order is None:
+                break
+
+            if order.side is Side.BUY and order.price < best_order.price:
+                break
+
+            if order.side is Side.SELL and order.price > best_order.price:
+                break
+
+            trade_qty = min(
+                order.qty,
+                best_order.qty,
+            )
+
+            trade = Trade(
+                price=best_order.price,
+                qty=trade_qty,
+            )
+
+            trades.append(trade)
+
+            order.qty -= trade_qty
+            best_order.qty -= trade_qty
+
+            if best_order.qty == 0:
+                removed_order = self.book.remove_best_order(opposite_side)
+
+                if removed_order is not None and removed_order.type is OrderType.PEG:
+                    self._remove_pegged_order(removed_order)
+
+                if refresh_pegs:
+                    trades.extend(self._refresh_pegged_orders())
+
+        return trades
+
+    def _refresh_pegged_orders(self) -> list[Trade]:                              # Atualiza as Pegged Orders quando o preço de referência muda.
+        trades = []
+
+        changed = True
+
+        while changed:
+            changed = False
+
+            for order in list(self.pegged_orders.values()):                       # Crio uma cópia das Pegged Orders antes de iterar porque algumas delas podem ser removidas (pop) do dicionário durante a atualização.
+                if order.qty <= 0:
+                    self._remove_pegged_order(order)
+                    changed = True
+                    continue
+
+                reference_price = self._reference_price(order.peg_reference)
+
+                active = (
+                    order.order_id is not None
+                    and self.book.find_order(order.order_id) is order
+                )
+
+                if reference_price is None:
+                    if active:
+                        self.book.remove_order(order)
+                        order.price = None
+                        self.suspended_peg_ids.add(order.order_id)
+                        changed = True
+
+                    continue
+
+                if active and order.price == reference_price:
+                    continue
+
+                if active:
+                    self.book.remove_order(order)
+                    order.price = reference_price
+
+                else:
+                    order.price = reference_price
+                    order.sequence = self._generate_sequence()
+                    self.suspended_peg_ids.discard(order.order_id)
+
+                peg_trades = self._match_order(order, refresh_pegs=False)
+                trades.extend(peg_trades)
+
+                if order.qty > 0:
+                    self.book.add(order)
+                else:
+                    self._remove_pegged_order(order)
+
+                changed = True
+
+        return trades
 
     def submit_limit(
         self,
@@ -53,45 +174,21 @@ class MatchingEngine:                                               # Recebe as 
             qty=qty,
             price=price,
             order_id=order_id,
+            sequence=self._generate_sequence(),
         )   
 
-        trades = []
-
-        opposite_side = side.opposite
-
-        while order.qty > 0:
-            best_order = self.book.best_order(opposite_side)
-
-            if best_order is None:
-                break
-
-            if side is Side.BUY and price < best_order.price:
-                break
-
-            if side is Side.SELL and price > best_order.price:
-                break
-
-            trade_qty = min(
-                order.qty,
-                best_order.qty,
-            )
-
-            trade = Trade(
-                price=best_order.price,
-                qty=trade_qty,
-            )
-
-            trades.append(trade)
-
-            order.qty -= trade_qty
-            best_order.qty -= trade_qty
-
-            if best_order.qty == 0:
-                self.book.remove_best_order(opposite_side)
+        trades = self._match_order(order)
 
         if order.qty > 0:
             self.book.add(order)
-            self.last_created_order = order
+            
+            trades.extend(self._refresh_pegged_orders())
+            
+            if self.book.find_order(order_id) is order:
+                self.last_created_order = order
+
+        else:
+            trades.extend(self._refresh_pegged_orders())
 
         return trades
 
@@ -111,7 +208,6 @@ class MatchingEngine:                                               # Recebe as 
         trades = []                                                # Lista vazia para armazenar as trades que vão ser geradas a partir da execução da ordem market.
 
         while order.qty > 0:                                       # Enquanto a quantidade da ordem market for maior que zero, vai continuar consumindo o book.
-
             best_order = self.book.best_order(opposite_side)       # Verifica a melhor ordem do lado oposto.
 
             if best_order is None:
@@ -133,17 +229,85 @@ class MatchingEngine:                                               # Recebe as 
             best_order.qty -= trade_qty                            # Atualiza a quantidade restante da melhor ordem do book após o trade.
 
             if best_order.qty == 0:                                # Se a best order foi executada completamente, remove ela do livro de ofertas.
-                self.book.remove_best_order(opposite_side)
+                removed_order = self.book.remove_best_order(opposite_side)
+                
+                if removed_order is not None and removed_order.type is OrderType.PEG:
+                    self._remove_pegged_order(removed_order)
+
+                trades.extend(self._refresh_pegged_orders())
 
         return trades
     
-    def cancel_order(self, order_id: str) -> None:
+    def submit_peg(
+        self,
+        reference: PegReference,
+        side: Side,
+        qty: int,
+    ) -> list[Trade]:
+
+        self.last_created_order = None
+
+        reference_price = self._reference_price(reference)
+
+        if reference_price is None:
+            raise ValueError("reference price unavailable")
+
+        order_id = self._generate_order_id()
+
+        order = Order(
+            side=side,
+            type=OrderType.PEG,
+            qty=qty,
+            price=reference_price,
+            order_id=order_id,
+            peg_reference=reference,
+            sequence=self._generate_sequence(),
+        )
+
+        self.pegged_orders[order_id] = order
+
+        trades = self._match_order(order, refresh_pegs=False)
+
+        if order.qty == 0:
+            self._remove_pegged_order(order)
+            return trades
+
+        current_reference = self._reference_price(reference)
+
+        if current_reference is None:
+            order.price = None
+            self.suspended_peg_ids.add(order_id)
+            return trades
+
+        order.price = current_reference
+
+        self.book.add(order)
+
+        trades.extend(self._refresh_pegged_orders())
+
+        if self.book.find_order(order_id) is order:
+            self.last_created_order = order
+
+        return trades
+    
+    def cancel_order(self, order_id: str) -> list[Trade]:
         order = self.book.find_order(order_id)
+        
+        if order is not None:
+            self.book.remove_order(order)
 
-        if order is None:
-            raise ValueError("ordem nao encontrada")
+            if order.type is OrderType.PEG:
+                self._remove_pegged_order(order)
 
-        self.book.remove_order(order)
+            return self._refresh_pegged_orders()                                           # A ordem cancelada pode ter sido a referência de alguma Pegged Order, então é necessário atualizar as Pegged Orders para ver se alguma delas precisa ser suspensa ou reprecificada.
+
+        suspended_order = self.pegged_orders.get(order_id)
+
+        if suspended_order is not None and order_id in self.suspended_peg_ids:
+            self._remove_pegged_order(suspended_order)
+            return []
+
+        raise ValueError("ordem nao encontrada")
     
     def modify_order(
         self,
@@ -170,6 +334,9 @@ class MatchingEngine:                                               # Recebe as 
         side = order.side
 
         self.book.remove_order(order)
+        
+        if order.type is OrderType.PEG:
+            self._remove_pegged_order(order)
 
         return self.submit_limit(
             side=side,

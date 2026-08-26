@@ -292,5 +292,128 @@ class TestCLI(unittest.TestCase):
             50,
         )
     
+    
+    def test_peg_bid_command(self):
+        engine = MatchingEngine()
+
+        execute_command(
+            engine,
+            "limit buy 10 200",
+        )
+
+        output = execute_command(
+            engine,
+            "peg bid buy 150",
+        )
+
+        self.assertEqual(
+            output,
+            [
+                "Order created: buy 150 @ 10 ord-2"
+            ],
+        )
+
+        peg_order = engine.book.find_order(
+            "ord-2"
+        )
+
+        self.assertIsNotNone(peg_order)
+
+        self.assertEqual(
+            peg_order.price,
+            Decimal("10"),
+        )
+
+
+    def test_peg_offer_command(self):
+        engine = MatchingEngine()
+
+        execute_command(
+            engine,
+            "limit sell 10.5 100",
+        )
+
+        output = execute_command(
+            engine,
+            "peg offer sell 150",
+        )
+
+        self.assertEqual(
+            output,
+            [
+                "Order created: sell 150 @ 10.5 ord-2"
+            ],
+        )
+
+        peg_order = engine.book.find_order(
+            "ord-2"
+        )
+
+        self.assertIsNotNone(peg_order)
+
+        self.assertEqual(
+            peg_order.price,
+            Decimal("10.5"),
+        )
+
+
+    def test_peg_command_without_reference_raises_error(self):
+        engine = MatchingEngine()
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "reference price unavailable",
+        ):
+            execute_command(
+                engine,
+                "peg bid buy 100",
+            )
+
+
+    def test_peg_bid_reproduces_problem_example(self):
+        engine = MatchingEngine()
+
+        execute_command(
+            engine,
+            "limit buy 10 200",
+        )
+
+        execute_command(
+            engine,
+            "limit buy 9.99 100",
+        )
+
+        execute_command(
+            engine,
+            "limit sell 10.5 100",
+        )
+
+        execute_command(
+            engine,
+            "peg bid buy 150",
+        )
+
+        execute_command(
+            engine,
+            "limit buy 10.1 300",
+        )
+
+        output = execute_command(
+            engine,
+            "print book",
+        )
+
+        self.assertEqual(
+            output,
+            [
+                "Ordens de Compra    | Ordens de Venda",
+                "--------------------|--------------------",
+                "150 @ 10.1          | 100 @ 10.5",
+                "300 @ 10.1          |",
+                "200 @ 10            |",
+                "100 @ 9.99          |",
+            ],
+        )
+    
 if __name__ == "__main__":
     unittest.main()

@@ -131,16 +131,16 @@ Aumento de quantidade = perde prioridade.
 
 ## 8. Pegged Orders
 
-- [ ] Adicionar tipo `PEG`.
-- [ ] Criar referências `BID` e `OFFER`.
-- [ ] Implementar `peg bid`.
-- [ ] Implementar `peg offer`.
-- [ ] Fazer Pegged Orders acompanharem automaticamente o preço de referência.
-- [ ] Reprecificar quando Best Bid ou Best Offer mudar.
-- [ ] Definir comportamento quando não houver referência.
-- [ ] Evitar referências recursivas entre Pegged Orders.
-- [ ] Executar matching caso a reprecificação gere cruzamento.
-- [ ] Criar testes de Pegged Orders.
+- [x] Adicionar tipo `PEG`.
+- [x] Criar referências `BID` e `OFFER`.
+- [x] Implementar `peg bid`.
+- [x] Implementar `peg offer`.
+- [x] Fazer Pegged Orders acompanharem automaticamente o preço de referência.
+- [x] Reprecificar quando Best Bid ou Best Offer mudar.
+- [x] Definir comportamento quando não houver referência.
+- [x] Evitar referências recursivas entre Pegged Orders.
+- [x] Executar matching caso a reprecificação gere cruzamento.
+- [x] Criar testes de Pegged Orders.
 
 ---
 

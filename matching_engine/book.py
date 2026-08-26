@@ -21,19 +21,31 @@ class OrderBook:
         return self.sell_orders
 
     def add(self, order: Order) -> None:                                           # Adiciona uma ordem ao livro de ordens, verificando se é uma ordem limit e se o preço é válido, e adicionando a ordem à fila correspondente no dicionário do lado correto (compra ou venda).
-        if order.type is not OrderType.LIMIT:
-            raise ValueError("somente ordens limit podem permanecer no livro")
+        if order.type not in (OrderType.LIMIT, OrderType.PEG):
+            raise ValueError("somente ordens limit e peg podem permanecer no livro")
 
         if order.price is None or order.price <= 0:
-            raise ValueError("ordem limit precisa possuir preco maior que zero")
+            raise ValueError("ordem precisa possuir preco maior que zero")
 
         side_book = self._get_side_book(order.side)                                # Descobrindo o lado da ordem e armazenando o dicionário correspondente (buy_orders ou sell_orders) na variável side_book.
 
         if order.price not in side_book:                                           # Verifica se tem uma fila para o preço da ordem. Se não tiver, cria uma nova fila para esse preço.
             side_book[order.price] = deque()
 
-        side_book[order.price].append(order)
+        orders_at_price = side_book[order.price]                                   # Pega a fila de ordens que já estão nesse mesmo preço.
+
+        inserted = False
         
+        if order.sequence > 0:
+            for index, existing_order in enumerate(orders_at_price):
+                if existing_order.sequence > 0 and existing_order.sequence > order.sequence:
+                    orders_at_price.insert(index, order)                           # Insere a ordem antes de uma ordem que chegou depois dela.
+                    inserted = True
+                    break
+
+        if not inserted:
+            orders_at_price.append(order)                                          # Se não encontrou uma posição anterior, adiciona a ordem ao final da fila.
+
         if order.order_id is not None:
             self.orders_by_id[order.order_id] = order
 
@@ -47,6 +59,25 @@ class OrderBook:
             return max(side_book)                                                  # O melhor preço de compra é o maior preço disponível (BID).
 
         return min(side_book)                                                      # O melhor preço de venda é o menor preço disponível (ASK/OFFER).
+
+    def best_limit_price(self, side: Side) -> Optional[Decimal]:                  # Retorna o melhor preço de referência considerando somente ordens LIMIT, para facilitar a lógica de PEG.
+        side_book = self._get_side_book(side)
+
+        valid_prices = []
+
+        for price, orders in side_book.items():
+            for order in orders:
+                if order.type is OrderType.LIMIT:
+                    valid_prices.append(price)
+                    break
+
+        if not valid_prices:
+            return None
+
+        if side is Side.BUY:
+            return max(valid_prices)
+
+        return min(valid_prices)
 
     def best_order(self, side: Side) -> Optional[Order]:                           # Diz qual ordem deve ser executada primeiro para um lado X no melhor preço.
         price = self.best_price(side)                                              # Atribui o melhor preço para o lado correspondente.

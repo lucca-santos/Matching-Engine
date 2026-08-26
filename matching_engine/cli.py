@@ -1,7 +1,7 @@
 from decimal import Decimal, InvalidOperation
 
 from .engine import MatchingEngine
-from .orders import Side
+from .orders import Side, PegReference
 
 
 def execute_command(
@@ -75,9 +75,13 @@ def execute_command(
         if len(parts) != 3 or parts[1] != "order":
             raise ValueError("comando cancel invalido")
 
-        engine.cancel_order(parts[2])
+        trades = engine.cancel_order(parts[2])
 
-        return ["Order cancelled"]
+        output = [str(trade) for trade in trades]
+
+        output.append("Order cancelled")
+
+        return output
     
     # Modifica ordem
     if parts[0] == "modify":
@@ -117,6 +121,41 @@ def execute_command(
         output = [str(trade) for trade in trades]
 
         output.append("Order modified")
+
+        return output
+    
+    # Pegged
+    if parts[0] == "peg":
+        if len(parts) != 4:
+            raise ValueError("comando peg invalido")
+
+        try:
+            reference = PegReference(parts[1])
+            side = Side(parts[2])
+            qty = int(parts[3])
+
+        except ValueError:
+            raise ValueError("comando peg invalido") from None
+
+        trades = engine.submit_peg(
+            reference=reference,
+            side=side,
+            qty=qty,
+        )
+
+        output = [str(trade) for trade in trades]
+
+        created_order = engine.last_created_order
+
+        if created_order is not None:
+            price = f"{created_order.price.normalize():f}"
+
+            output.append(
+                f"Order created: "
+                f"{created_order.side.value} "
+                f"{created_order.qty} @ {price} "
+                f"{created_order.order_id}"
+            )
 
         return output
 

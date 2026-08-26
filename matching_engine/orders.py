@@ -16,6 +16,11 @@ class Side(str, Enum):                                          # Um Enum serve 
 class OrderType(str, Enum):
     LIMIT = "limit"
     MARKET = "market"
+    PEG = "peg"
+    
+class PegReference(str, Enum):
+    BID = "bid"
+    OFFER = "offer"
 
 @dataclass
 class Order:
@@ -24,3 +29,5 @@ class Order:
     qty: int
     price: Optional[Decimal] = None                              # Pode ser decimal ou não existir.
     order_id: Optional[str] = None
+    peg_reference: Optional[PegReference] = None
+    sequence: int = 0                                            # Permite preservar a prioridade original da PEG durante uma reprecificação.
