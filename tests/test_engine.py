@@ -1476,6 +1476,63 @@ class TestMatchingEngine(unittest.TestCase):
                 order.order_id,
                 qty=0,
             )
+    
+    
+    def test_modify_peg_quantity_keeps_peg_type(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        engine.submit_peg(
+            reference=PegReference.BID,
+            side=Side.BUY,
+            qty=50,
+        )
+
+        peg = engine.last_created_order
+
+        engine.modify_order(
+            peg.order_id,
+            qty=200,
+        )
+
+        self.assertEqual(
+            peg.type,
+            OrderType.PEG,
+        )
+
+        self.assertEqual(
+            peg.qty,
+            200,
+        )
+
+
+    def test_modify_peg_price_raises_error(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        engine.submit_peg(
+            reference=PegReference.BID,
+            side=Side.BUY,
+            qty=50,
+        )
+
+        peg = engine.last_created_order
+
+        with self.assertRaises(ValueError):
+            engine.modify_order(
+                peg.order_id,
+                price=Decimal("20"),
+            )
 
 if __name__ == "__main__":
     unittest.main()

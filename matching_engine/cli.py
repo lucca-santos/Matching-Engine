@@ -206,3 +206,6 @@ def main() -> None:
 
         except ValueError as error:
             print(f"Error: {error}")
+            
+        except (EOFError, KeyboardInterrupt):
+            break

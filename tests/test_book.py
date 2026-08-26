@@ -334,6 +334,58 @@ class TestOrderBook(unittest.TestCase):
         self.assertFalse(
             book.remove_order(order)
         )
+        
+        
+    def test_add_preserves_sequence_priority(self):
+        book = OrderBook()
+
+        first = Order(
+            side=Side.BUY,
+            type=OrderType.LIMIT,
+            qty=100,
+            price=Decimal("10"),
+            order_id="ord-1",
+            sequence=1,
+        )
+
+        second = Order(
+            side=Side.BUY,
+            type=OrderType.PEG,
+            qty=100,
+            price=Decimal("10"),
+            order_id="ord-2",
+            sequence=2,
+        )
+
+        late_insert = Order(
+            side=Side.BUY,
+            type=OrderType.PEG,
+            qty=100,
+            price=Decimal("10"),
+            order_id="ord-3",
+            sequence=1,
+        )
+
+        book.add(first)
+        book.add(second)
+        book.add(late_insert)
+
+        orders = list(book.buy_orders[Decimal("10")])
+
+        self.assertEqual(
+            orders[0].order_id,
+            "ord-1",
+        )
+
+        self.assertEqual(
+            orders[1].order_id,
+            "ord-3",
+        )
+
+        self.assertEqual(
+            orders[2].order_id,
+            "ord-2",
+        )    
 
 if __name__ == "__main__":
     unittest.main()

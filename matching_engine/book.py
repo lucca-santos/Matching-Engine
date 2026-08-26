@@ -34,17 +34,14 @@ class OrderBook:
 
         orders_at_price = side_book[order.price]                                   # Pega a fila de ordens que já estão nesse mesmo preço.
 
-        inserted = False
-        
-        if order.sequence > 0:
+        if not orders_at_price or orders_at_price[-1].sequence <= order.sequence:
+            orders_at_price.append(order)
+
+        else:
             for index, existing_order in enumerate(orders_at_price):
                 if existing_order.sequence > 0 and existing_order.sequence > order.sequence:
-                    orders_at_price.insert(index, order)                           # Insere a ordem antes de uma ordem que chegou depois dela.
-                    inserted = True
-                    break
-
-        if not inserted:
-            orders_at_price.append(order)                                          # Se não encontrou uma posição anterior, adiciona a ordem ao final da fila.
+                    orders_at_price.insert(index, order)
+                    break                                          # Se não encontrou uma posição anterior, adiciona a ordem ao final da fila.
 
         if order.order_id is not None:
             self.orders_by_id[order.order_id] = order

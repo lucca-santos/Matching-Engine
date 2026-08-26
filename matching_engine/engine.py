@@ -277,20 +277,33 @@ class MatchingEngine:                                               # Recebe as 
 
         self.pegged_orders[order_id] = order
 
-        trades = self._match_order(order, refresh_pegs=False)
+        trades = []
 
-        if order.qty == 0:
-            self._remove_pegged_order(order)
-            return trades
+        while True:
+            current_reference = self._reference_price(reference)
 
-        current_reference = self._reference_price(reference)
+            if current_reference is None:
+                order.price = None
+                self.suspended_peg_ids.add(order_id)
+                trades.extend(self._refresh_pegged_orders())
+                return trades
 
-        if current_reference is None:
-            order.price = None
-            self.suspended_peg_ids.add(order_id)
-            return trades
+            order.price = current_reference
 
-        order.price = current_reference
+            trades.extend(
+                self._match_order(
+                    order,
+                    refresh_pegs=False,
+                )
+            )
+
+            if order.qty == 0:
+                self._remove_pegged_order(order)
+                trades.extend(self._refresh_pegged_orders())
+                return trades
+
+            if self._reference_price(reference) == current_reference:
+                break
 
         self.book.add(order)
 
@@ -331,6 +344,18 @@ class MatchingEngine:                                               # Recebe as 
 
         if order is None:
             raise ValueError("ordem nao encontrada")
+        
+        if order.type is OrderType.PEG:
+
+            if price is not None:
+                raise ValueError("ordem pegged nao permite alteracao manual de preco")
+
+            if qty is not None:
+                self._validate_qty(qty)
+
+                order.qty = qty
+
+            return []
 
         new_price = order.price if price is None else price
         new_qty = order.qty if qty is None else qty
