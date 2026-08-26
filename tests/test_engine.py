@@ -1421,6 +1421,61 @@ class TestMatchingEngine(unittest.TestCase):
             peg.price,
             Decimal("12"),
         )
+        
+    def test_limit_order_with_negative_quantity_raises_error(self):
+        engine = MatchingEngine()
+
+        with self.assertRaises(ValueError):
+            engine.submit_limit(
+                side=Side.BUY,
+                price=Decimal("10"),
+                qty=-100,
+            )
+
+
+    def test_market_order_with_zero_quantity_raises_error(self):
+        engine = MatchingEngine()
+
+        with self.assertRaises(ValueError):
+            engine.submit_market(
+                side=Side.BUY,
+                qty=0,
+            )
+
+
+    def test_peg_order_with_negative_quantity_raises_error(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        with self.assertRaises(ValueError):
+            engine.submit_peg(
+                reference=PegReference.BID,
+                side=Side.BUY,
+                qty=-50,
+            )
+
+
+    def test_modify_order_with_invalid_quantity_raises_error(self):
+        engine = MatchingEngine()
+
+        engine.submit_limit(
+            side=Side.BUY,
+            price=Decimal("10"),
+            qty=100,
+        )
+
+        order = engine.book.best_order(Side.BUY)
+
+        with self.assertRaises(ValueError):
+            engine.modify_order(
+                order.order_id,
+                qty=0,
+            )
 
 if __name__ == "__main__":
     unittest.main()

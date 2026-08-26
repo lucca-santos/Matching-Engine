@@ -21,6 +21,11 @@ class Trade:
 
 class MatchingEngine:                                               # Recebe as ordens e decide o que fazer com elas.
                                                                     # Order é o dado, Book é onde as ordens ficam, Engine é quem coordena tudo.
+    
+    def _validate_qty(self, qty: int) -> None:
+        if not isinstance(qty, int) or qty <= 0:
+            raise ValueError("qty deve ser um inteiro positivo")
+    
     def __init__(self) -> None:                                     # Construtor da classe, inicializa o book e faz com que a classe passe a ter um livro de ofertas.
         self.book = OrderBook()
         
@@ -164,6 +169,8 @@ class MatchingEngine:                                               # Recebe as 
     ) -> list[Trade]:
         
         self.last_created_order = None
+        
+        self._validate_qty(qty)
 
         if order_id is None:
             order_id = self._generate_order_id()
@@ -197,6 +204,8 @@ class MatchingEngine:                                               # Recebe as 
         side: Side,
         qty: int,
     ) -> list[Trade]:                                              # Uma única Market Order pode gerar várias Trades, então o retorno é uma lista de Trades.
+        
+        self._validate_qty(qty)
 
         order = Order(                                             # Matching engine cria o objeto order com os parâmetros recebidos.
             side=side,
@@ -246,6 +255,8 @@ class MatchingEngine:                                               # Recebe as 
     ) -> list[Trade]:
 
         self.last_created_order = None
+        
+        self._validate_qty(qty)
 
         reference_price = self._reference_price(reference)
 
@@ -323,6 +334,8 @@ class MatchingEngine:                                               # Recebe as 
 
         new_price = order.price if price is None else price
         new_qty = order.qty if qty is None else qty
+        
+        self._validate_qty(new_qty)
 
         price_changed = new_price != order.price
         quantity_increased = new_qty > order.qty
