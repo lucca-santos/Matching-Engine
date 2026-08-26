@@ -112,13 +112,13 @@ class OrderBook:
         for price in sorted(self.buy_orders, reverse=True):
             for order in self.buy_orders[price]:
                 buy_rows.append(
-                    f"{order.qty} @ {order.price}"
+                    f"{order.qty} @ {order.price.normalize():f}"
                 )
 
         for price in sorted(self.sell_orders):
             for order in self.sell_orders[price]:
                 sell_rows.append(
-                    f"{order.qty} @ {order.price}"
+                    f"{order.qty} @ {order.price.normalize():f}"
                 )
 
         lines = [
