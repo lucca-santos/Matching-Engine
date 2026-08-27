@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import deque
+from collections import deque                                                     # Para implementar FIFO
 from decimal import Decimal
 from typing import Deque, Dict, Optional
 
@@ -41,7 +41,7 @@ class OrderBook:
             for index, existing_order in enumerate(orders_at_price):
                 if existing_order.sequence > 0 and existing_order.sequence > order.sequence:
                     orders_at_price.insert(index, order)
-                    break                                          # Se não encontrou uma posição anterior, adiciona a ordem ao final da fila.
+                    break                                                          # Se não encontrou uma posição anterior, adiciona a ordem ao final da fila.
 
         if order.order_id is not None:
             self.orders_by_id[order.order_id] = order
@@ -150,7 +150,7 @@ class OrderBook:
         return self.orders_by_id.get(order_id)
 
 
-    def remove_order(self, order: Order) -> bool:
+    def remove_order(self, order: Order) -> bool:                           # Retorna true se conseguiu remover, se não, retorna false.
         if order.price is None:
             return False
 
@@ -166,10 +166,10 @@ class OrderBook:
         except ValueError:
             return False
 
-        if not orders_at_price:
-            del side_book[order.price]
+        if not orders_at_price:                                            
+            del side_book[order.price]                                     # Remove fila vazia (remove chave do dict).
 
-        if order.order_id is not None:
+        if order.order_id is not None:                                     # Remove por ID.
             self.orders_by_id.pop(order.order_id, None)
 
         return True
