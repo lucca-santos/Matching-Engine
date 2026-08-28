@@ -170,8 +170,8 @@ python -m unittest discover -s tests -v
 - [x] Testar manualmente todos os exemplos do enunciado.
 - [x] Atualizar README.
 - [x] Revisar histórico Git e mensagens dos commits.
-- [ ] Garantir que `.venv` e arquivos temporários não estejam versionados.
-- [ ] Conferir `git status`.
-- [ ] Fazer push final.
-- [ ] Clonar o repositório em outro diretório.
-- [ ] Validar instalação, testes e execução do zero.
+- [x] Garantir que `.venv` e arquivos temporários não estejam versionados.
+- [x] Conferir `git status`.
+- [x] Fazer push final.
+- [x] Clonar o repositório em outro diretório.
+- [x] Validar instalação, testes e execução do zero.
