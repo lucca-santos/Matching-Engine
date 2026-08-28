@@ -168,9 +168,8 @@ python -m unittest discover -s tests -v
 ```
 
 - [x] Testar manualmente todos os exemplos do enunciado.
-- [ ] Atualizar README.
-- [ ] Documentar arquitetura, decisões técnicas, complexidades e limitações.
-- [ ] Revisar histórico Git e mensagens dos commits.
+- [x] Atualizar README.
+- [x] Revisar histórico Git e mensagens dos commits.
 - [ ] Garantir que `.venv` e arquivos temporários não estejam versionados.
 - [ ] Conferir `git status`.
 - [ ] Fazer push final.
