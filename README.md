@@ -9,7 +9,7 @@ matching_engine/
     book.py      livro de ofertas (onde as ordens ficam)
     engine.py    cruzamento, cancelamento, alteração e pegged
     cli.py       interpretador de comandos e REPL
-tests/           84 testes (unittest)
+tests/           98 testes (unittest)
 ```
 
 ## Como rodar
@@ -28,6 +28,7 @@ python -m unittest discover -s tests -v      # testes
 | `peg <bid\|offer> <buy\|sell> <qty>` | `peg bid buy 150` |
 | `cancel order <id>` | `cancel order ord-1` |
 | `modify order <id> [price <p>] [qty <q>]` | `modify order ord-1 price 9.98 qty 50` |
+| `modify order <id> [reference <bid\|offer>] [qty <q>]` | `modify order ord-2 reference offer` |
 | `print book` | mostra o livro |
 | `exit` | encerra |
 
@@ -35,7 +36,7 @@ python -m unittest discover -s tests -v      # testes
 
 ## Arquitetura
 
-Três camadas, com dependência apenas para baixo:
+Quatro camadas, com dependência apenas para baixo:
 
 **`orders.py`** define o dado. Não conhece o livro nem a engine.
 
@@ -53,11 +54,10 @@ HTTP poderia reusar a engine sem tocar neste arquivo.
 Cada ordem carrega duas informações distintas, e a diferença entre elas é o que
 sustenta os requisitos 4 e 5:
 
-| Campo | O que é | Muda? |
-|---|---|---|
-| `order_id` | identidade (`ord-1`) | nunca |
-| `sequence` | posição na fila | sim, quando a ordem perde prioridade |
-
+| Campo | O que é |
+|---|---|
+| `order_id` | identificador (`ord-1`) |
+| `sequence` | marcador de prioridade temporal / ordem de chegada |
 ---
 
 ## Decisões técnicas
@@ -71,8 +71,7 @@ Ignorar deixaria o livro **cruzado** — melhor compra ≥ melhor venda, duas or
 paradas uma na frente da outra sem negociar. Nenhuma bolsa permite esse estado, e
 a próxima ordem a mercado executaria a um preço pior do que o disponível.
 
-Além disso, executar elimina um caso especial: uma ordem a mercado passa a ser
-apenas *uma limit sem limite de preço*, e as duas percorrem o mesmo caminho.
+Conceitualmente, uma Market segue o mesmo princípio de consumo de liquidez de uma Limit agressiva, porém sem uma restrição de preço.
 
 Se sobrar quantidade, a sobra entra no livro **no preço limite da ordem** — o
 preço que o cliente pediu, não o preço a que ele executou.
@@ -113,9 +112,9 @@ são exibidas como:
 Trade, price: 20, qty: 150
 ```
 
-Internamente cada execução continua sendo um `Trade` separado — é o registro correto de quem
-negociou com quem; `aggregate_trades` junta os consecutivos de mesmo preço apenas
-na hora de imprimir.
+Internamente cada execução contra uma ordem passiva continua sendo um `Trade`
+separado. `aggregate_trades` junta apenas execuções consecutivas realizadas no
+mesmo preço na hora de apresentar a saída da CLI.
 
 ### 4. Prioridade na alteração de ordem
 
@@ -124,6 +123,14 @@ na hora de imprimir.
 | mudar o preço | **perde** | é outra oferta: pede lugar numa fila onde nunca esteve |
 | aumentar a quantidade | **perde** | o excedente não esperou na fila |
 | diminuir a quantidade | **mantém** | devolve lugar; ninguém atrás é prejudicado |
+
+As regras de quantidade acima são aplicadas tanto às ordens LIMIT quanto às
+ordens PEG: aumentar a quantidade faz a ordem perder prioridade e receber um
+novo `sequence`, enquanto diminuir a quantidade preserva sua prioridade.
+
+Ordens PEG possuem ainda uma regra específica: uma troca manual da referência
+`BID` para `OFFER`, ou de `OFFER` para `BID`, também faz a ordem perder
+prioridade.
 
 O princípio único: **prioridade se conquista esperando**. Qualquer alteração que
 peça *mais* ao mercado reinicia a espera; alteração que peça *menos*, não.
@@ -150,13 +157,19 @@ Então a reprecificação **não** manda a ordem para o fim da fila. O contraste
 a decisão 4 é o que explica: lá quem mudou o preço foi o cliente, e ele paga por
 isso; aqui quem mudou foi a engine, sem ninguém pedir — não seria justo punir.
 
-Implementação: a pegged mantém o `sequence` original, e `OrderBook.add` a insere
-na posição correspondente da fila em vez de acrescentá-la ao fim.
+O preço de uma pegged não pode ser alterado manualmente, pois é determinado pela
+referência que ela acompanha. Porém, a própria referência pode ser modificada
+pelo usuário entre `BID` e `OFFER`.
 
-Pelo mesmo motivo, o preço de uma pegged **não pode ser alterado à mão**: ele
-pertence à engine. Alterar a quantidade é permitido.
+Uma reprecificação automática causada pela movimentação do mercado preserva o
+`sequence`, pois foi a engine que alterou o preço. Já uma troca manual da
+referência (`BID` para `OFFER` ou `OFFER` para `BID`) representa uma mudança
+voluntária na estratégia da ordem e, por isso, faz a PEG perder prioridade e
+receber um novo `sequence` quando volta ao livro.
 
-A ordem nunca saiu do livro. Ela estava lá, negociável, a cada instante. Mudou de faixa, mas não de posição na sala.
+A alteração manual de quantidade segue a mesma regra de prioridade usada nas
+ordens LIMIT: aumentar a quantidade faz a PEG perder prioridade e receber um
+novo `sequence`; diminuir a quantidade mantém o `sequence` atual.
 
 ### 6. O preço de referência ignora as próprias pegged
 
@@ -166,7 +179,7 @@ perseguem o mercado formado por _"ordens de verdade"_.
 
 ### 7. Pegged sem referência
 
-Uma pegged só existe se houver um preço para seguir:
+Uma pegged só pode permanecer ativa no livro se houver um preço para seguir:
 
 - **na criação**, sem bid (ou offer) formado por ordens limit, a ordem é recusada
   com `reference price unavailable`;
@@ -175,6 +188,11 @@ Uma pegged só existe se houver um preço para seguir:
 
 Ao voltar, recebe `sequence` novo: ela esteve fora do livro, e o tempo em que não
 esteve disponível para negociar não conta como espera na fila.
+
+Uma PEG suspensa também pode ter sua referência alterada. Se a nova referência
+já existir, ela é reativada e processada imediatamente. Caso a nova referência
+também não exista, a ordem continua suspensa até que um preço de referência
+válido apareça.
 
 ### 8. Pegged agressiva executa até a referência se estabilizar
 
@@ -186,8 +204,12 @@ Nesses casos a ordem varre um nível, a referência muda, e ela precisa ser
 inserida num preço que cruza o lado oposto e o livro ficaria cruzado — o estado
 que a decisão 1 existe para evitar.
 
-O laço termina porque cada volta ou consome liquidez (reduzindo o lado oposto) ou
-encontra a referência inalterada (preço que perseguia é alterado).
+O processo continua enquanto a execução alterar o preço de referência. Quando
+um nível é consumido, a PEG consulta novamente sua referência e, se necessário,
+continua executando no novo preço.
+
+O processo termina quando a ordem é totalmente executada, quando a referência
+desaparece ou quando, após o matching, o preço de referência permanece o mesmo.
 
 ### 9. Ordens market nunca ficam no livro
 
@@ -200,8 +222,9 @@ Em ponto flutuante, `0.1 + 0.2 != 0.3`. Num livro de ofertas isso vira ordem que
 deveria cruzar e não cruza. `Decimal` compara exatamente o que foi digitado.
 Preços são normalizados na impressão (`20`, não `20.00`).
 
-Quantidade é validada em todos os pontos de entrada: precisa ser inteiro
-positivo. Preço precisa ser maior que zero.
+Quantidade é validada em todos os pontos de entrada: precisa ser um inteiro
+positivo. Preço precisa ser um `Decimal` positivo e finito; valores zero,
+negativos, `NaN` e infinitos são rejeitados antes do matching.
 
 ### 11. `Order created:` é sempre impresso
 
@@ -256,11 +279,12 @@ Comando para execução:
 python -m unittest discover -s tests -v
 ```
 
-84 testes cobrindo os quatro exemplos do enunciado reproduzidos literalmente,
+98 testes cobrindo os comportamentos e cenários apresentados no enunciado,
 cruzamento em um e vários níveis, execução total e parcial, prioridade por
-chegada, cancelamento, alteração com e sem perda de prioridade, as quatro
-combinações de pegged, suspensão e retorno por falta de referência, e entradas
-inválidas.
+chegada, cancelamento, alteração de preço e quantidade com e sem perda de
+prioridade, as quatro combinações de pegged, suspensão e reativação por falta de
+referência, alteração manual da referência `BID`/`OFFER`, prioridade após
+alteração de quantidade de pegged, pegged agressivas e entradas inválidas.
 
 ---
 

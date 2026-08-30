@@ -25,7 +25,11 @@ class MatchingEngine:                                               # Recebe as 
     def _validate_qty(self, qty: int) -> None:
         if not isinstance(qty, int) or qty <= 0:
             raise ValueError("qty deve ser um inteiro positivo")
-    
+        
+    def _validate_price(self, price: Decimal) -> None:
+        if not isinstance(price, Decimal) or not price.is_finite() or price <= 0:
+            raise ValueError("price deve ser um Decimal positivo e finito")
+        
     def __init__(self) -> None:                                     # Construtor da classe, inicializa o book e faz com que a classe passe a ter um livro de ofertas.
         self.book = OrderBook()
         
@@ -171,6 +175,7 @@ class MatchingEngine:                                               # Recebe as 
         self.last_created_order = None
         
         self._validate_qty(qty)
+        self._validate_price(price)
 
         if order_id is None:
             order_id = self._generate_order_id()
@@ -338,28 +343,69 @@ class MatchingEngine:                                               # Recebe as 
         order_id: str,
         price: Optional[Decimal] = None,
         qty: Optional[int] = None,
+        reference: Optional[PegReference] = None,
     ) -> list[Trade]:
 
         order = self.book.find_order(order_id)
 
         if order is None:
-            raise ValueError("ordem nao encontrada")
+            suspended_order = self.pegged_orders.get(order_id)
+
+            if (
+                suspended_order is not None
+                and order_id in self.suspended_peg_ids
+            ):
+                order = suspended_order
+            
+            else:
+                raise ValueError("ordem nao encontrada")
         
         if order.type is OrderType.PEG:
 
             if price is not None:
                 raise ValueError("ordem pegged nao permite alteracao manual de preco")
-
+            
+            quantity_increased = False
+        
             if qty is not None:
                 self._validate_qty(qty)
-
+                quantity_increased = qty > order.qty
                 order.qty = qty
 
+            if (
+                reference is not None
+                and reference is not order.peg_reference
+            ):
+                active = self.book.find_order(order_id) is order
+
+                if active:
+                    self.book.remove_order(order)
+
+                order.peg_reference = reference
+                order.price = None
+
+                self.suspended_peg_ids.add(order_id)
+
+                return self._refresh_pegged_orders()
+
+
+            if quantity_increased:
+                active = self.book.find_order(order_id) is order
+
+                if active:
+                    self.book.remove_order(order)
+                    order.sequence = self._generate_sequence()
+                    self.book.add(order)
+
             return []
+                    
+        if reference is not None:
+            raise ValueError("ordem limit nao permite referencia pegged")
 
         new_price = order.price if price is None else price
         new_qty = order.qty if qty is None else qty
         
+        self._validate_price(new_price)
         self._validate_qty(new_qty)
 
         price_changed = new_price != order.price

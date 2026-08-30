@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from matching_engine.cli import execute_command
 from matching_engine.engine import MatchingEngine
-from matching_engine.orders import Side
+from matching_engine.orders import Side, PegReference
 
 
 class TestCLI(unittest.TestCase):
@@ -473,6 +473,74 @@ class TestCLI(unittest.TestCase):
                 engine,
                 "peg offer sell 50",
             )
+    
+    
+    def test_modify_peg_reference_command(self):
+        engine = MatchingEngine()
+
+        execute_command(
+            engine,
+            "limit buy 10 100",
+        )
+
+        execute_command(
+            engine,
+            "limit sell 11 100",
+        )
+
+        execute_command(
+            engine,
+            "peg bid buy 50",
+        )
+
+        output = execute_command(
+            engine,
+            "modify order ord-3 reference offer",
+        )
+
+        self.assertEqual(
+            output,
+            [
+                "Trade, price: 11, qty: 50",
+                "Order modified",
+            ],
+        )
+
+
+    def test_modify_peg_reference_and_quantity_command(self):
+        engine = MatchingEngine()
+
+        execute_command(
+            engine,
+            "limit buy 10 100",
+        )
+
+        execute_command(
+            engine,
+            "peg bid buy 50",
+        )
+
+        output = execute_command(
+            engine,
+            "modify order ord-2 reference offer qty 80",
+        )
+
+        self.assertEqual(
+            output,
+            ["Order modified"],
+        )
+
+        peg = engine.pegged_orders["ord-2"]
+
+        self.assertEqual(
+            peg.peg_reference,
+            PegReference.OFFER,
+        )
+
+        self.assertEqual(
+            peg.qty,
+            80,
+        )
     
 if __name__ == "__main__":
     unittest.main()

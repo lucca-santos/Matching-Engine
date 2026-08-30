@@ -110,6 +110,7 @@ def execute_command(
 
         price = None
         qty = None
+        reference = None
 
         changes = parts[3:]
 
@@ -120,6 +121,9 @@ def execute_command(
 
                 if field == "price":
                     price = Decimal(value)
+                    
+                elif field == "reference":
+                    reference = PegReference(value)
 
                 elif field == "qty":
                     qty = int(value)
@@ -134,6 +138,7 @@ def execute_command(
             order_id=order_id,
             price=price,
             qty=qty,
+            reference=reference,
         )
 
         output = [

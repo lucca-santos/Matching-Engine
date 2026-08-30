@@ -161,7 +161,7 @@ Aumento de quantidade = perde prioridade.
 
 ## 10. Testes finais, documentação e entrega
 
-- [ ] Executar todos os testes:
+- [x] Executar todos os testes:
 
 ```bash
 python -m unittest discover -s tests -v

@@ -24,8 +24,8 @@ class OrderBook:
         if order.type not in (OrderType.LIMIT, OrderType.PEG):
             raise ValueError("somente ordens limit e peg podem permanecer no livro")
 
-        if order.price is None or order.price <= 0:
-            raise ValueError("ordem precisa possuir preco maior que zero")
+        if order.price is None or not order.price.is_finite() or order.price <= 0:
+            raise ValueError("ordem precisa possuir preco positivo e finito")
 
         side_book = self._get_side_book(order.side)                                # Descobrindo o lado da ordem e armazenando o dicionário correspondente (buy_orders ou sell_orders) na variável side_book.
 
